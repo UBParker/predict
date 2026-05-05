@@ -16,6 +16,31 @@ from predict.model import LSTMForecaster
 logger = logging.getLogger(__name__)
 
 
+def compute_metrics(
+    true_prices: np.ndarray,
+    pred_prices: np.ndarray,
+    test_dates: pd.DatetimeIndex,
+    output_dir: Path | None = None,
+) -> dict[str, float]:
+    """Compute regression metrics and optionally save a plot."""
+    metrics = {
+        "mse": mean_squared_error(true_prices, pred_prices),
+        "rmse": np.sqrt(mean_squared_error(true_prices, pred_prices)),
+        "mae": mean_absolute_error(true_prices, pred_prices),
+        "r2": r2_score(true_prices, pred_prices),
+    }
+
+    logger.info(
+        f"Test metrics | RMSE: ${metrics['rmse']:.2f} | MAE: ${metrics['mae']:.2f} | R²: {metrics['r2']:.4f}"
+    )
+
+    if output_dir:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        _plot_predictions(true_prices, pred_prices, test_dates, metrics, output_dir)
+
+    return metrics
+
+
 def evaluate_model(
     model: LSTMForecaster,
     test_loader: DataLoader,
@@ -40,22 +65,20 @@ def evaluate_model(
     pred_prices = target_scaler.inverse_transform(pred_scaled).ravel()
     true_prices = target_scaler.inverse_transform(true_scaled).ravel()
 
-    metrics = {
-        "mse": mean_squared_error(true_prices, pred_prices),
-        "rmse": np.sqrt(mean_squared_error(true_prices, pred_prices)),
-        "mae": mean_absolute_error(true_prices, pred_prices),
-        "r2": r2_score(true_prices, pred_prices),
-    }
+    return compute_metrics(true_prices, pred_prices, test_dates, output_dir)
 
-    logger.info(
-        f"Test metrics | RMSE: ${metrics['rmse']:.2f} | MAE: ${metrics['mae']:.2f} | R²: {metrics['r2']:.4f}"
-    )
 
-    if output_dir:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        _plot_predictions(true_prices, pred_prices, test_dates, metrics, output_dir)
-
-    return metrics
+def evaluate_arrays(
+    pred_scaled: np.ndarray,
+    true_scaled: np.ndarray,
+    target_scaler: MinMaxScaler,
+    test_dates: pd.DatetimeIndex,
+    output_dir: Path | None = None,
+) -> dict[str, float]:
+    """Evaluate from raw numpy predictions (used by JAX backend)."""
+    pred_prices = target_scaler.inverse_transform(pred_scaled.reshape(-1, 1)).ravel()
+    true_prices = target_scaler.inverse_transform(true_scaled.reshape(-1, 1)).ravel()
+    return compute_metrics(true_prices, pred_prices, test_dates, output_dir)
 
 
 def _plot_predictions(

@@ -31,10 +31,8 @@ def build_sequences(
     return np.array(xs), np.array(ys)
 
 
-def prepare_data(
-    cfg: Config,
-) -> tuple[DataLoader, DataLoader, DataLoader, MinMaxScaler, MinMaxScaler, pd.DatetimeIndex]:
-    """Fetch data, scale, split chronologically, return DataLoaders + scalers."""
+def prepare_arrays(cfg: Config) -> dict:
+    """Fetch, scale, split into numpy arrays. Backend-agnostic."""
     df = fetch_market_data(cfg)
 
     feature_scaler = MinMaxScaler()
@@ -50,14 +48,24 @@ def prepare_data(
     train_end = int(n * cfg.train_ratio)
     val_end = int(n * (cfg.train_ratio + cfg.val_ratio))
 
-    splits = {
-        "train": (X[:train_end], y[:train_end]),
-        "val": (X[train_end:val_end], y[train_end:val_end]),
-        "test": (X[val_end:], y[val_end:]),
+    return {
+        "train": (X[:train_end].astype(np.float32), y[:train_end].astype(np.float32)),
+        "val": (X[train_end:val_end].astype(np.float32), y[train_end:val_end].astype(np.float32)),
+        "test": (X[val_end:].astype(np.float32), y[val_end:].astype(np.float32)),
+        "target_scaler": target_scaler,
+        "test_dates": df.index[val_end + cfg.sequence_length :],
     }
 
+
+def prepare_data(
+    cfg: Config,
+) -> tuple[DataLoader, DataLoader, DataLoader, MinMaxScaler, MinMaxScaler, pd.DatetimeIndex]:
+    """Fetch data, scale, split chronologically, return DataLoaders + scalers."""
+    arrays = prepare_arrays(cfg)
+
     loaders = {}
-    for name, (X_split, y_split) in splits.items():
+    for name in ("train", "val", "test"):
+        X_split, y_split = arrays[name]
         tensors = TensorDataset(
             torch.tensor(X_split, dtype=torch.float32),
             torch.tensor(y_split, dtype=torch.float32),
@@ -66,6 +74,4 @@ def prepare_data(
             tensors, batch_size=cfg.batch_size, shuffle=(name == "train")
         )
 
-    test_dates = df.index[val_end + cfg.sequence_length :]
-
-    return loaders["train"], loaders["val"], loaders["test"], feature_scaler, target_scaler, test_dates
+    return loaders["train"], loaders["val"], loaders["test"], None, arrays["target_scaler"], arrays["test_dates"]
