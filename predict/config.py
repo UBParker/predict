@@ -8,7 +8,8 @@ class Config:
     ticker: str = "^GSPC"
     start_date: str = "2010-01-01"
     end_date: str = "2025-12-31"
-    feature_columns: tuple[str, ...] = ("Close", "Volume", "High", "Low", "Open")
+    raw_columns: tuple[str, ...] = ("Close", "Volume", "High", "Low", "Open")
+    feature_columns: tuple[str, ...] = ("Close", "Volume", "Range", "Intraday_Return")
     target_column: str = "Close"
 
     sequence_length: int = 60

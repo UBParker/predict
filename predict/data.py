@@ -17,7 +17,23 @@ def fetch_market_data(cfg: Config) -> pd.DataFrame:
     # yfinance sometimes returns MultiIndex columns
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.droplevel(1)
-    return df[list(cfg.feature_columns)].dropna()
+    return df[list(cfg.raw_columns)].dropna()
+
+
+def engineer_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
+    """Derive non-redundant features from raw OHLCV data.
+
+    Raw OHLC prices are ~1.0 correlated with each other. Instead we keep
+    Close and Volume as-is and replace High/Low/Open with:
+      - Range: High - Low (intraday volatility)
+      - Intraday_Return: (Close - Open) / Open (intraday direction)
+    """
+    out = pd.DataFrame(index=df.index)
+    out["Close"] = df["Close"]
+    out["Volume"] = df["Volume"]
+    out["Range"] = df["High"] - df["Low"]
+    out["Intraday_Return"] = (df["Close"] - df["Open"]) / df["Open"]
+    return out[list(cfg.feature_columns)]
 
 
 def build_sequences(
@@ -33,7 +49,8 @@ def build_sequences(
 
 def prepare_arrays(cfg: Config) -> dict:
     """Fetch, scale, split into numpy arrays. Backend-agnostic."""
-    df = fetch_market_data(cfg)
+    raw = fetch_market_data(cfg)
+    df = engineer_features(raw, cfg)
 
     feature_scaler = MinMaxScaler()
     target_scaler = MinMaxScaler()

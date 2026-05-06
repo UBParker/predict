@@ -7,10 +7,11 @@ from predict.model import LSTMForecaster
 
 
 def test_build_sequences_shapes():
-    data = np.random.randn(100, 5)
+    n_features = len(Config().feature_columns)
+    data = np.random.randn(100, n_features)
     targets = np.random.randn(100)
     X, y = build_sequences(data, targets, seq_len=10)
-    assert X.shape == (90, 10, 5)
+    assert X.shape == (90, 10, n_features)
     assert y.shape == (90,)
 
 
