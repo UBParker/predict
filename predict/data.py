@@ -21,18 +21,24 @@ def fetch_market_data(cfg: Config) -> pd.DataFrame:
 
 
 def engineer_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
-    """Derive non-redundant features from raw OHLCV data.
+    """Derive non-redundant features from raw OHLCV.
 
-    Raw OHLC prices are ~1.0 correlated with each other. Instead we keep
-    Close and Volume as-is and replace High/Low/Open with:
-      - Range: High - Low (intraday volatility)
-      - Intraday_Return: (Close - Open) / Open (intraday direction)
+    Replaces correlated OHLC columns with technical indicators
+    that each carry distinct signal: momentum, volatility, trend.
     """
     out = pd.DataFrame(index=df.index)
     out["Close"] = df["Close"]
     out["Volume"] = df["Volume"]
     out["Range"] = df["High"] - df["Low"]
     out["Intraday_Return"] = (df["Close"] - df["Open"]) / df["Open"]
+    out["Return_1d"] = df["Close"].pct_change()
+    out["Return_5d"] = df["Close"].pct_change(5)
+    out["Volatility_5d"] = df["Close"].pct_change().rolling(5).std()
+    sma20 = df["Close"].rolling(20).mean()
+    out["SMA_Ratio_20"] = df["Close"] / sma20
+    out["Volume_Change"] = df["Volume"].pct_change()
+    # rolling windows create NaNs at the start
+    out = out.dropna()
     return out[list(cfg.feature_columns)]
 
 

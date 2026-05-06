@@ -9,7 +9,11 @@ class Config:
     start_date: str = "2010-01-01"
     end_date: str = "2025-12-31"
     raw_columns: tuple[str, ...] = ("Close", "Volume", "High", "Low", "Open")
-    feature_columns: tuple[str, ...] = ("Close", "Volume", "Range", "Intraday_Return")
+    feature_columns: tuple[str, ...] = (
+        "Close", "Volume", "Range", "Intraday_Return",
+        "Return_1d", "Return_5d", "Volatility_5d",
+        "SMA_Ratio_20", "Volume_Change",
+    )
     target_column: str = "Close"
 
     sequence_length: int = 60
